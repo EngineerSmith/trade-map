@@ -97,7 +97,6 @@ scene.resize = function(w, h)
     assets[fontName] = lg.newFont(assets._path["font.regular"], fontSize)
     assets[fontName]:setFilter("nearest", "nearest")
   end
-  print(fontName, assets[fontName])
   suit.subtitleFont = assets[fontName]
 
   scene.editor.resize(w, h)
@@ -141,9 +140,9 @@ scene.updateui = function()
 
   suit:Shape("NavbarBgLine", bgline, 0, height-3, lg.getWidth(), 3)
   suit.layout:reset(100*imgScale*scene.scale+10, 5, 10)
-  local b1 = suit:Button(b1txt, { noScaleX = true, r=5, active = scene.active == scene.editor }, suit.layout:right(lg.getFont():getWidth(b1txt) + 10, 35))
+  local b1 = suit:Button(b1txt, { noScaleX = true, r=3, active = scene.active == scene.editor }, suit.layout:right(lg.getFont():getWidth(b1txt) + 10, 35))
   if b1.hit then scene.active = scene.editor end
-  local b2 = suit:Button(b2txt, { noScaleX = true, r=5, active = scene.active == scene.companies }, suit.layout:right(lg.getFont():getWidth(b2txt) + 10, 35))
+  local b2 = suit:Button(b2txt, { noScaleX = true, r=3, active = scene.active == scene.companies }, suit.layout:right(lg.getFont():getWidth(b2txt) + 10, 35))
   if b2.hit then scene.active = scene.companies end
   if b1.hovered or b2.hovered then
     bgline[1],bgline[2],bgline[3] = .6,.6,.6

@@ -23,7 +23,8 @@ local movingGrid = false
 
 local scene = { 
   gridX = 0, gridY = 0,
-  gridScale = 0
+  gridScale = 0,
+  activeCompany = nil,
 }
 
 scene.load = function(project, suit)
@@ -39,7 +40,20 @@ scene.unload = function()
 end
 
 scene.update = function(dt)
-
+  local suit = scene.suit
+  if scene.scrollHitbox then
+    local limit = (scene.scrollHitbox[4] - scene.scrollHitbox[2]) - scene.scrollHeightLimit
+    if limit > 0 then 
+      scene.scrollHeight = 0
+      goto continue
+    end
+    if scene.scrollHeight > 0 then scene.scrollHeight = scene.scrollHeight - dt*8*scene.scrollHeight end
+    if scene.scrollHeight < limit then scene.scrollHeight = scene.scrollHeight + dt*8*(limit-scene.scrollHeight) end
+    -- if it goes too far, we don't want to lose the scroll area
+    if scene.scrollHeight > 300*suit.scale then scene.scrollHeight = 0 end
+    if scene.scrollHeight < limit-300*suit.scale then scene.scrollHeight = limit end
+  end
+  ::continue::
 end
 
 local validateTabWidth = function(width)
@@ -48,8 +62,8 @@ local validateTabWidth = function(width)
   return width
 end
 
-local tabWidth = validateTabWidth(settings.client.spritesheetTabWidth)
-settings.client.spritesheetTabWidth = tabWidth
+local tabWidth = validateTabWidth(settings.client.companiesTabWidth)
+settings.client.companiesTabWidth = tabWidth
 local tabWidthChanging = false
 local tabNotHeld = false
 
@@ -58,10 +72,56 @@ scene.scrollHitbox = nil
 
 local drawCompanyUi = function(company, width)
   local suit = scene.suit
-  local font = suit.subtitleFont
-  local height = font:getHeight()
-  suit.layout:down(width, height)
-  suit.layout:padding(20, 5)
+
+  local name = company.name
+  local instanceInfo = scene.project.getInstanceInfo()
+  if instanceInfo.lang then
+    name = instanceInfo.lang["company.ptdye."..company.abbreviation]
+    if not name or name == "" then name = company.name end
+  end
+  local x, y, _w, h = suit.layout:down(width, lg.getFont():getHeight())
+  suit:Label(name, {
+      noScaleY = true,
+      noBox = true,
+      align = "left",
+      oneLine = true,
+    }, x,y,_w,h)
+  suit.layout:padding(5, 5)
+  suit:Label(company.abbreviation, {
+      x = 0.0001, y = 0, w = 0,
+      h = 5, r = 5, override = true,
+      font = suit.subtitleFont,
+      noScaleY = true,
+      align = "center",
+      oneLine = true,
+      color = {bg = company.color, fg={.95,.95,.95}},
+    }, suit.layout:down(width-5, suit.subtitleFont:getHeight()))
+  suit.layout:padding(0,10)
+  suit:Shape(-1, {.5,.5,.5}, {noScaleY = true}, suit.layout:down(width, 1*(suit.scale*1.5)))
+  suit.layout:padding(20, 2)
+  
+  y = y + 3
+  local height = h + suit.subtitleFont:getHeight() + 7
+  if scene.activeCompany == company then
+    suit:Shape(-1, {.3,.3,.3}, {noScaleY=true, cornerRadius=3,override=true,x=0.0001,y=0,w=0,h=0}, x-3,y,width+6,height+2)
+  end
+  if not tabWidthChanging then
+    local mx, my = lm.getPosition()
+    if mx > x and mx < x + width*suit.scale and my > y and my < y + height then
+      if cursor_hand then lm.setCursor(cursor_hand) end
+      if lm.isDown(1) then
+        scene.activeCompany = company
+      end
+      return 1
+    end
+  end
+end
+
+scene.calculateScrollboxHeight = function()
+  local suit = scene.suit
+  local notExtended = lg.getFont():getHeight() + suit.subtitleFont:getHeight() + 16 + suit.scale*1.5*4
+  local height = #scene.project.companies * notExtended
+  scene.scrollHeightLimit = height + 2 * suit.scale
 end
 
 local drawStencil = function(x,y,w,h)
@@ -88,8 +148,12 @@ local drawScrollBox = function(x, y, width)
   suit:Draw(clearStencil, unpack(scene.scrollHitbox)) -- suit draws backwards, clear stencil first
   suit.layout:reset(x+5, label.y+label.h+10+scene.scrollHeight, 20,3)
 
+  local toggle = 0
   for _, company in ipairs(scene.project.companies) do
-    drawCompanyUi(company, width-15)
+    toggle = toggle + (drawCompanyUi(company, width-15) or 0)
+  end
+  if toggle == 0 and not tabWidthChanging then
+    lm.setCursor(nil)
   end
 
   suit:Draw(drawStencil, {noScaleY=true}, unpack(scene.scrollHitbox))  -- suit draws backwards, set stencil last
@@ -144,14 +208,12 @@ scene.drawAboveUI = function()
 end
 
 scene.resize = function(_, _)
-
+  scene.calculateScrollboxHeight()
 end
 
 scene.mousepressed = function(x,y, button)
-  if button == 1 and not scene.suit:anyHovered() then
-    if button == 3 and scene.scrollHitbox and scene.suit:mouseInRect(unpack(scene.scrollHitbox)) then
-      scene.scrollHeight = 0
-    end
+  if button == 3 and scene.scrollHitbox and scene.suit:mouseInRect(unpack(scene.scrollHitbox)) then
+    scene.scrollHeight = 0
   end
 end
 

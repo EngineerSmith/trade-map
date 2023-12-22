@@ -3,12 +3,14 @@ project.__index = project
 
 local json = require("util.json")
 local file = require("util.file")
+local color = require("util.color")
 
 local nfs = require("libs.nativefs")
 
 local lfs = love.filesystem
 
 local tradePath = "/server_scripts/base/trading/"
+local langPath = "/assets/ptdye/lang/"
 
 local projectsFile = "projects.json"
 local projectFile = tradePath .. "tradeTree/.meta"
@@ -71,6 +73,7 @@ project.loadProject = function(path)
     self.dirty = false
     setmetatable(self, project)
     self:loadCompanies()
+    self:loadLocalization()
     print("Loaded "..#self.companies.." companies")
     return self
   end
@@ -136,6 +139,7 @@ project.loadCompanies = function(self)
           fileName = fileName
         }
         table.insert(self.companies, company)
+        self.dirty = true
       end
       local out = { }
       local script = nfs.read(companyDirectory..filePath)
@@ -145,22 +149,45 @@ project.loadCompanies = function(self)
         for index, c in ipairs(self.companies) do
           if c == company then
             table.remove(self.companies, index)
-            break
+            goto continue
           end
+          error("Shouldn't reach this point")
         end
-        goto continue
       end
-      company.name, company.abbreviation = out[1], out[2] or out[1]
+      if company.name ~= out[1] then
+        company.name = out[1]
+        self.dirty = true
+      end
+      local abb = out[2] or out [1]
+      if company.abbreviation ~= abb then
+        company.abbreviation = abb
+        self.dirty = true
+      end
       -- [[ agreements constructor ]]
       company.agreements = { }
       findPattern(script, agreementPattern, company.agreements)
-      -- Debug
-      -- print(company.fileName, company.name, company.abbreviation)
-      -- for _, agreement in ipairs(company.agreements) do
-      --   print("\t"..agreement)
-      -- end
     end
     ::continue::
+  end
+  table.sort(self.companies, function(a, b) return a.name < b.name end)
+  for _, company in ipairs(self.companies) do
+    if not company.color then
+      company.color = color.getDeterministicColor(company.abbreviation)
+      self.dirty = true
+    end
+  end
+end
+
+project.loadLocalization = function()
+  local file = instanceInfo.path..langPath.."en_us.json"
+  if nfs.getInfo(file, "file") then
+    local success, lang = json.decode(file, true)
+    if success then
+      print("Loaded "..file)
+      instanceInfo.lang = lang
+    else
+      print("Couldn't load "..file)
+    end
   end
 end
 

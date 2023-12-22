@@ -34,9 +34,13 @@ theme.getColorForState = function(opt)
   return opt and opt.color and opt.color[s] or theme.color[s]
 end
 
-theme.drawBox = function(x, y, w, h, colors, cornerRadius)
+theme.drawBox = function(x, y, w, h, colors, cornerRadius, override)
   if cornerRadius then
-    cornerRadius = math.max(3, cornerRadius) * theme.scale
+    if not override then
+      cornerRadius = math.max(3, cornerRadius) * theme.scale
+    else
+      cornerRadius = cornerRadius * theme.scale
+    end
     w = math.max(cornerRadius / 2, w)
     if h < cornerRadius / 2 then
       y, h = y - cornerRadius - h, cornerRadius / 2
@@ -62,21 +66,21 @@ theme.Label = function(text, opt, x, y, w, h)
   local font = opt.font or lg.getFont()
   y = y + theme.getVerticalOffsetForAlign(opt.valign, font, h)
   
-  if opt.entered then
-    if opt.flux then opt.flux:stop() end
-    opt.flux = flux.to(opt, .3, { x=-2, y=-2, w=4,h=4 }):ease("elasticout")
-  end
-  if opt.left then
-    if opt.flux then opt.flux:stop() end
-    opt.flux = flux.to(opt, .2, { x=0,y=0,w=0,h=0 }):ease("quadout")
-  end
-  if opt.flux and opt.flux.progress >= 1 and not opt.hovered then
-    opt.x, opt.y, opt.w, opt.h = 0, 0, 0, 0
-  end
+  -- if opt.entered then
+  --   if opt.flux then opt.flux:stop() end
+  --   opt.flux = flux.to(opt, .3, { x=-2, y=-2, w=4,h=4 }):ease("elasticout")
+  -- end
+  -- if opt.left then
+  --   if opt.flux then opt.flux:stop() end
+  --   opt.flux = flux.to(opt, .2, { x=0,y=0,w=0,h=0 }):ease("quadout")
+  -- end
+  -- if opt.flux and opt.flux.progress >= 1 and not opt.hovered then
+  --   opt.x, opt.y, opt.w, opt.h = 0, 0, 0, 0
+  -- end
 
   local c = opt.color or theme.getColorForState()
   if not opt.noBox then
-    theme.drawBox(x + opt.x, y - 5 + opt.y, w + opt.w, h + opt.h, c, (opt.x ~= 0 and opt.r or -opt.x)*3)
+    theme.drawBox(x + opt.x, y - 5 + opt.y, w + opt.w, h + opt.h, c, (opt.x ~= 0 and opt.r or -opt.x)*3, opt.override)
   end
 
   if opt.oneLine then
@@ -101,7 +105,7 @@ theme.Label = function(text, opt, x, y, w, h)
 end
 
 theme.Shape = function(color, opt, x,y,w,h)
-  theme.drawBox(x, y, w, h, color, opt.cornerRadius)
+  theme.drawBox(x, y, w, h, color, opt.cornerRadius, opt.override)
 end
 
 theme.Button = function(text, opt, x, y, w, h)
