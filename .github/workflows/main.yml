@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        love_version: ['12.0', '11.4']
+        love_version: ['12.0']
     steps:
     - uses: actions/checkout@v3
     - uses: engineersmith/love-build@master
