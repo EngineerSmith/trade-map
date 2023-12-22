@@ -152,7 +152,7 @@ local drawScrollBox = function(x, y, width)
   for _, company in ipairs(scene.project.companies) do
     toggle = toggle + (drawCompanyUi(company, width-15) or 0)
   end
-  if toggle == 0 and not tabWidthChanging then
+  if toggle == 0 and not tabWidthChanging and scene.suit:mouseInRect(unpack(scene.scrollHitbox)) then
     lm.setCursor(nil)
   end
 
@@ -196,7 +196,7 @@ local drawScrollBox = function(x, y, width)
 end
 
 scene.updateui = function(x, y)
-drawScrollBox(x, y, tabWidth)
+  drawScrollBox(x, y, tabWidth)
 end
 
 scene.draw = function()

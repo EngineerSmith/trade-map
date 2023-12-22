@@ -1,3 +1,14 @@
+local lg, lm = love.graphics, love.mouse
+
+local isCursorSupported = lm.isCursorSupported()
+local cursor_sizewe, cursor_sizeall, cursor_ibeam, cursor_hand
+if isCursorSupported then
+  cursor_sizewe = lm.getSystemCursor("sizewe")
+  cursor_sizeall = lm.getSystemCursor("sizeall")
+  cursor_ibeam = lm.getSystemCursor("ibeam")
+  cursor_hand = lm.getSystemCursor("hand")
+end
+
 local suit = require("libs.suit").new()
 suit.theme = require("ui.theme_Editor")
 
@@ -7,8 +18,6 @@ local settings = require("util.settings")
 local assets = require("util.assets")
 
 local undo = require("src.undo")
-
-local lg = love.graphics
 
 local scene = {
   editor = require("scene.editor.editor"),
@@ -137,6 +146,12 @@ scene.updateui = function()
       require("util.sceneManager").changeScene("scene.menu", true)
     end
   end
+  if b.left then
+    lm.setCursor(nil)
+  end
+  if b.entered and cursor_hand then
+    lm.setCursor(cursor_hand)
+  end
 
   suit:Shape("NavbarBgLine", bgline, 0, height-3, lg.getWidth(), 3)
   suit.layout:reset(100*imgScale*scene.scale+10, 5, 10)
@@ -148,6 +163,12 @@ scene.updateui = function()
     bgline[1],bgline[2],bgline[3] = .6,.6,.6
   else
     bgline[1],bgline[2],bgline[3] = .6,.6,.6
+  end
+  if b1.left or b2.left then
+    lm.setCursor(nil)
+  end
+  if b1.entered or b2.entered then
+    if cursor_hand then lm.setCursor(cursor_hand) end
   end
   suit:Shape("NavbarBg", {.3,.3,.3}, 0,0, lg.getWidth(), height)
 
