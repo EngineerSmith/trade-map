@@ -164,19 +164,19 @@ theme.Slider = function(fraction, opt, x, y, w, h)
   local xb, yb, wb, hb -- size of progress bar
   local r = math.min(w,h) / 2.1
 
-  if opt.entered then
-    if opt.flux then opt.flux:stop() end
-    opt.flux = flux.to(opt, .7, { x = -1, y = -1, h = .65 }):ease("elasticout")
-  end
-  if opt.left then
-    if opt.flux then opt.flux:stop() end
-    opt.flux = flux.to(opt, .2, { x = 0, y = 0, h = .55 }):ease("quadout")
-  end
-  if opt.flux and opt.flux.progress >= 1 and not opt.hovered then
-    opt.x, opt.y, opt.w, opt.h = 0, 0, 0, .55
-  end
+  -- if opt.entered then
+  --   if opt.flux then opt.flux:stop() end
+  --   opt.flux = flux.to(opt, .7, { x = -1, y = -1, h = .65 }):ease("elasticout")
+  -- end
+  -- if opt.left then
+  --   if opt.flux then opt.flux:stop() end
+  --   opt.flux = flux.to(opt, .2, { x = 0, y = 0, h = .55 }):ease("quadout")
+  -- end
+  -- if opt.flux and opt.flux.progress >= 1 and not opt.hovered then
+  --   opt.x, opt.y, opt.w, opt.h = 0, 0, 0, .55
+  -- end
 
-  local scale = opt.h
+  local scale = opt.h or 1
 
   if opt.vertical then
     x, w = x + w * .25 + opt.x, w * scale
@@ -186,9 +186,9 @@ theme.Slider = function(fraction, opt, x, y, w, h)
     xb, yb, wb, hb = x, y, w * fraction, h
   end
 
-  local c = theme.getColorForState(opt)
-  theme.drawBox(x, y, w, h, c, opt.cornerRadius)
-  theme.drawBox(xb, yb, wb, hb, {bg=c.fg}, opt.cornerRadius)
+  local c = opt.bar or theme.getColorForState(opt)
+  theme.drawBox(x, y, w, h, {bg={0,0,0}}, opt.cornerRadius, opt.override)
+  theme.drawBox(xb, yb, wb, hb, {bg=c.fg}, opt.cornerRadius, opt.override)
 
   if opt.state ~= nil and opt.state ~= "normal" then
     lg.setColor((opt.color and opt.color.active or { }).fg or theme.color.active.fg)

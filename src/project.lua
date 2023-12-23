@@ -11,9 +11,10 @@ local lfs = love.filesystem
 
 local tradePath = "/server_scripts/base/trading/"
 local langPath = "/assets/ptdye/lang/"
+local sealPath = "/assets/wares/textures/gui/seal/"
 
 local projectsFile = "projects.json"
-local projectFile = tradePath .. "tradeTree/.meta"
+local projectFile = tradePath .. ".meta"
 
 local instanceInfo = { }
 project.getInstanceInfo = function() return instanceInfo end
@@ -53,6 +54,9 @@ project.addProject = function(path)
 end
 
 project.loadProject = function(path)
+  instanceInfo = { 
+    seal = { }
+  }
   instanceInfo.path = path
   -- new Project
   if not nfs.getInfo(path..projectFile, "file") then
@@ -174,6 +178,16 @@ project.loadCompanies = function(self)
     if not company.color then
       company.color = color.getDeterministicColor(company.abbreviation)
       self.dirty = true
+    end
+    local path = instanceInfo.path..sealPath..company.fileName..".png"
+    if nfs.getInfo(path, "file") then
+      company.hasSeal = true
+      local fd = nfs.newFileData(path, company.fileName..".png")
+      local seal = love.graphics.newImage(fd)
+      seal:setFilter('nearest')
+      instanceInfo.seal[company.fileName] = seal
+    else
+      print("No seal for "..company.fileName..", at "..path)
     end
   end
 end

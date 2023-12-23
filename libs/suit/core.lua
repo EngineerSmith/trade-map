@@ -1,10 +1,11 @@
 -- This file is part of SUIT, copyright (c) 2016 Matthias Richter
 
-local NONE = {}
 local BASE = (...):match('(.-)[^%.]+$')
 local default_theme = require(BASE..'theme')
 
-local suit = {}
+local suit = {
+	NONE = {}
+}
 suit.__index = suit
 
 function suit.new(theme)
@@ -174,7 +175,7 @@ end
 function suit:grabKeyboardFocus(id)
 	if self:isActive(id) then
 		if love.system.getOS() == "Android" or love.system.getOS() == "iOS" then
-			if id == NONE then
+			if id == suit.NONE then
 				love.keyboard.setTextInput( false )
 			else
 				love.keyboard.setTextInput( true )
@@ -198,22 +199,22 @@ function suit:enterFrame(mouseButton)
 	if not self.mouse_button_down then
 		self.active = nil
 	elseif self.active == nil then
-		self.active = NONE
+		self.active = suit.NONE
 	end
 	
 	
 	self.hovered_last, self.hovered = self.hovered, nil
 	self:updateMouse(love.mouse.getX(), love.mouse.getY(), love.mouse.isDown(mouseButton or 1))
 	self.hit = nil
-	self:grabKeyboardFocus(NONE)
+	self:grabKeyboardFocus(suit.NONE)
 	
 	self.wheel_x, self.wheel_y = 0,0
 end
 
 function suit:exitFrame()
 	self.key_down, self.textchar = nil, ""
-	if self.active ~= NONE and self.active ~= nil and self.active ~= self.keyboardFocus then
-		self.keyboardFocus = NONE
+	if self.active ~= suit.NONE and self.active ~= nil and self.active ~= self.keyboardFocus then
+		self.keyboardFocus = suit.NONE
 	end
 end
 

@@ -19,6 +19,9 @@ local assets = require("util.assets")
 
 local undo = require("src.undo")
 
+local sealQuad1 = lg.newQuad(0,  0,48,48, 256,256)
+local sealQuad2 = lg.newQuad(0,144,48,48, 256,256)
+
 local movingGrid = false
 
 local scene = { 
@@ -70,6 +73,9 @@ local tabNotHeld = false
 scene.scrollHeight = 0
 scene.scrollHitbox = nil
 
+local sliderR, sliderG, sliderB = {min=0, max=255}, {min=0, max=255}, {min=0, max=255}
+local originalColor
+
 local drawCompanyUi = function(company, width)
   local suit = scene.suit
 
@@ -109,8 +115,11 @@ local drawCompanyUi = function(company, width)
     local mx, my = lm.getPosition()
     if mx > x and mx < x + width*suit.scale and my > y and my < y + height then
       if cursor_hand then lm.setCursor(cursor_hand) end
-      if lm.isDown(1) then
+      if lm.isDown(1) and not suit:isActive(sliderR) and not suit:isActive(sliderG) and not suit:isActive(sliderB) then
         scene.activeCompany = company
+        local c = company.color
+        sliderR.value, sliderG.value, sliderB.value = c[1]*255, c[2]*255, c[3]*255
+        originalColor = {unpack(c)}
       end
       return 1
     end
@@ -128,6 +137,14 @@ local drawStencil = function(x,y,w,h)
   lg.setColorMask(false)
   lg.setStencilMode("replace", "always", 1)
   lg.rectangle("fill", x,y,w,h)
+  lg.setStencilMode("keep", "greater", 0)
+  lg.setColorMask(true)
+end
+
+local drawRGBStencil = function(x,y,w,h)
+  lg.setColorMask(false)
+  lg.setStencilMode("replace", "always", 1)
+  lg.rectangle("fill", x,y,w,h, 10)
   lg.setStencilMode("keep", "greater", 0)
   lg.setColorMask(true)
 end
@@ -195,8 +212,70 @@ local drawScrollBox = function(x, y, width)
   end
 end
 
+local drawCompanySettings = function(x, y)
+  local suit = scene.suit
+  suit.layout:reset(x, y, 0, 0)
+
+  local width = (lg.getWidth() / suit.scale) - x
+  local height = lg.getHeight() - y
+
+  if scene.activeCompany then
+    local name = scene.activeCompany.name
+    local instanceInfo = scene.project.getInstanceInfo()
+    if instanceInfo.lang then
+      name = instanceInfo.lang["company.ptdye."..scene.activeCompany.abbreviation]
+      if not name or name == "" then name = scene.activeCompany.name end
+    end
+    local label = suit:Label(name, {noBox = true}, suit.layout:up(width-5, lg.getFont():getHeight()))
+    local shape = suit:Shape(-1, {.6,.6,.6}, {noScaleY = true}, x,label.y+label.h,width,2*suit.scale)
+    suit.layout:reset(x+10, label.y+label.h+10, 10,10)
+    width = width-20
+
+    local c = scene.activeCompany.color
+    local r = suit:Slider(sliderR, {bar={fg={1,0,0},bg={0,0,0}},noScaleY = true,cornerRadius=4,override=true}, suit.layout:down(width*.6, lg.getFont():getHeight()/1.5))
+    local g = suit:Slider(sliderG, {bar={fg={0,1,0},bg={0,0,0}},noScaleY = true,cornerRadius=4,override=true}, suit.layout:down())
+    local b = suit:Slider(sliderB, {bar={fg={0,0,1},bg={0,0,0}},noScaleY = true,cornerRadius=4,override=true}, suit.layout:down())
+    if r.changed or g.changed or b.changed then
+      c[1] = sliderR.value /255
+      c[2] = sliderG.value /255
+      c[3] = sliderB.value /255
+      scene.project.dirty = true
+    end
+    if cursor_hand and (r.entered or g.entered or b.entered) then
+      lm.setCursor(cursor_hand)
+    end
+    if r.left or g.left or b.left then
+      lm.setCursor(nil)
+    end
+
+    local sx,sy,sw,sh = x+10+width*.64, label.y+label.h+25, lg.getFont():getHeight()*2, lg.getFont():getHeight()*2
+    suit:Draw(clearStencil, sx, sy, sw, sh) -- suit draws backwards, clear stencil first
+    suit:Shape(-1, c, {noScaleY=true},sx,sy,sw/2,sh)
+    suit:Shape(-1, originalColor, {noScaleY=true},sx+sw/2,sy,sw,sh)
+    suit:Draw(drawRGBStencil, {noScaleY=true}, sx, sy, sw, sh) -- suit draws backwards, set stencil last
+
+    local seal = scene.project.getInstanceInfo().seal[scene.activeCompany.fileName]
+    if seal then
+      suit:Image(-1, seal, {quad=sealQuad2,noScaleY=true}, sx+sw+20, sy, sw, sh)
+      suit:Image(-1, seal, {quad=sealQuad1,noScaleY=true}, sx+sw+20, sy, sw, sh)
+    end
+
+    suit.layout:translate(-10, 8*suit.scale)
+    local shape = suit:Shape(-1, {.6,.6,.6}, {noScaleY = true}, suit.layout:down(width+20, 2*suit.scale))
+    suit.layout:translate(10, -8*suit.scale)
+    
+  end
+
+  local c = {.3,.3,.3}
+  if not scene.activeCompany then
+    c = {.1,.1,.1}
+  end
+  suit:Shape("companiesSettingsBG", c, x-50,y, width+100, height)
+end
+
 scene.updateui = function(x, y)
   drawScrollBox(x, y, tabWidth)
+  drawCompanySettings(x + tabWidth, y)
 end
 
 scene.draw = function()

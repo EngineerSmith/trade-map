@@ -27,5 +27,7 @@ return function(core, id, color, ...)
     hovered = hovered,
     entered = entered,
     left = left,
+    x = x, y = y,
+    w = w, h = h,
   }
 end

@@ -3,13 +3,18 @@
 local BASE = (...):match('(.-)[^%.]+$')
 
 return function(core, info, ...)
-	local opt, x,y,w,h = core.getOptionsAndSize(...)
-	x, y, w, h = x * core.scale, y * core.scale, w * core.scale, h * core.scale
+  local opt, x,y,w,h = core.getOptionsAndSize(...)
+  
+  if not opt.noScaleX then
+    x, w = x * core.scale, w * core.scale
+  end
+  if not opt.noScaleY then
+    y, h  = y * core.scale, h * core.scale
+  end
 
 	if not opt.x then opt.x = 0 end
 	if not opt.y then opt.y = 0 end
 	if not opt.w then opt.w = 0 end
-	if not opt.h then opt.h = 0 end
 
 	opt.id = opt.id or info
 

@@ -11,10 +11,20 @@ local defaultDraw = function(image,x,y,w,h, opt, core, hovered, r,g,b,a)
     end
   end
   lg.setColor(r,g,b,a)
-  local iw, ih = image:getDimensions()
+  local iw, ih
+  if opt.quad then
+    local _
+    _,_, iw, ih = opt.quad:getViewport()
+  else
+    iw, ih = image:getDimensions()
+  end
   local sw, sh = w / iw, h / ih
   local s = sw < sh and sw or sh
-  lg.draw(image, x + (w-iw*s)/2, y + (h-ih*s)/2, 0, s)
+  if opt.quad then
+    lg.draw(image, opt.quad, x + (w-iw*s)/2, y + (h-ih*s)/2, 0, s)
+  else
+    lg.draw(image, x + (w-iw*s)/2, y + (h-ih*s)/2, 0, s)
+  end
 end
 
 local function isType(val, typ)

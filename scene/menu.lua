@@ -49,10 +49,10 @@ local syslSubText =  {
 local createDropText = function(effects, showAll)
   scene.droptext = sysl.new("center", syslSubText)
   if effects then
-    scene.droptext:send("[shake][dropshadow=10]Drop a DIRECTORY to get started![/shake]", nil, showAll)
+    scene.droptext:send("[shake][dropshadow=10]Drop a KUBEJS DIRECTORY to get started![/shake]", nil, showAll)
   else
     scene.droptext.bounce_height = 1
-    scene.droptext:send("[bounce=8][dropshadow=10] Drop a DIRECTORY to get started![/bounce]", nil, showAll)
+    scene.droptext:send("[bounce=8][dropshadow=10] Drop a KUBEJS DIRECTORY to get started![/bounce]", nil, showAll)
   end
 end
 
@@ -233,7 +233,7 @@ scene.draw = function()
   if scene.title:is_finished() then
     scene.subtext:draw(x - iw/2, y+60*scene.scale)
     if state ~= "dropping" and scene.title:is_finished() then
-      scene.droptext:draw(x - iw/1.12, y+120*scene.scale)
+      scene.droptext:draw(x - iw/.9, y+120*scene.scale)
     end
   end
 
