@@ -8,7 +8,12 @@ return function(core, text, ...)
 	w = w or opt.font and opt.font:getWidth(text) + 10 or love.graphics.getFont():getWidth(text) + 10
 	h = h or opt.font and opt.font:getHeight() + 10 or love.graphics.getFont():getHeight() + 10
 	
-	x, y, w, h = opt.noScaleX and x or x * core.scale, y * core.scale, opt.noScaleX and w or w * core.scale, opt.noScaleY and h or h * core.scale
+  if not opt.noScaleX then
+    x, w = x * core.scale, w * core.scale
+  end
+  if not opt.noScaleY then
+    y, h  = y * core.scale, h * core.scale
+  end
 
 	if not opt.x then
 		opt.x, opt.y, opt.w, opt.h = 0, 0, 0, 0

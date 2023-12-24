@@ -45,7 +45,7 @@ love.conf = function(t)
   t.window.resizable    = true
   t.window.minwidth     = settings._default.client.windowSize.width
   t.window.minheight    = settings._default.client.windowSize.height
-  t.window.displayindex = 1
+  t.window.displayindex = 2
   --t.window.depth        = 24
   t.window.mssa         = 4
 

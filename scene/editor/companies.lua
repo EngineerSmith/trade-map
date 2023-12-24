@@ -20,7 +20,9 @@ local assets = require("util.assets")
 local undo = require("src.undo")
 
 local sealQuad1 = lg.newQuad(0,  0,48,48, 256,256)
-local sealQuad2 = lg.newQuad(0,144,48,48, 256,256)
+local sealQuad2 = lg.newQuad(0, 48,48,48, 256,256)
+local sealQuad3 = lg.newQuad(0, 96,48,48, 256,256)
+local sealQuad4 = lg.newQuad(0,144,48,48, 256,256)
 
 local movingGrid = false
 
@@ -256,14 +258,27 @@ local drawCompanySettings = function(x, y)
 
     local seal = scene.project.getInstanceInfo().seal[scene.activeCompany.fileName]
     if seal then
-      suit:Image(-1, seal, {quad=sealQuad2,noScaleY=true}, sx+sw+20, sy, sw, sh)
-      suit:Image(-1, seal, {quad=sealQuad1,noScaleY=true}, sx+sw+20, sy, sw, sh)
+      local x, y, w, h = sx+sw+20, sy-lg.getFont():getHeight()/2, sw*1.5, sh*1.5
+      suit:Image(-1, seal, {quad=sealQuad4,noScaleY=true}, x, y, w, h)
+      suit:Image(-1, seal, {quad=sealQuad3,noScaleY=true}, x, y, w, h)
+      suit:Image(-1, seal, {quad=sealQuad2,noScaleY=true}, x, y, w, h)
+      suit:Image(-1, seal, {quad=sealQuad1,noScaleY=true}, x, y, w, h)
     end
 
     suit.layout:translate(-10, 8*suit.scale)
     local shape = suit:Shape(-1, {.6,.6,.6}, {noScaleY = true}, suit.layout:down(width+20, 2*suit.scale))
-    suit.layout:translate(10, -8*suit.scale)
-    
+    suit.layout._h = lg.getFont():getHeight() * 1.2
+    suit.layout._w = width
+    suit.layout:translate(10, -suit.layout._h)
+    for _, agreement in ipairs(scene.activeCompany.agreement) do
+      local b = suit:Button(agreement.name, {noScaleY=true, align="left"},suit.layout:down())
+      if cursor_hand and b.entered then
+        lm.setCursor(cursor_hand)
+      end
+      if b.left then
+        lm.setCursor(nil)
+      end
+    end
   end
 
   local c = {.3,.3,.3}
@@ -313,7 +328,7 @@ end
 scene.wheelmoved = function( _, y)
   local limit = (scene.scrollHitbox[4] - scene.scrollHitbox[2]) - scene.scrollHeightLimit
   if not (limit > 0) and not movingGrid and scene.scrollHitbox and scene.suit:mouseInRect(unpack(scene.scrollHitbox)) then
-    scene.scrollHeight = scene.scrollHeight + y * settings.client.scrollspeed * scene.suit.scale
+    scene.scrollHeight = scene.scrollHeight + y * settings.client.scrollspeed * scene.suit.scale * 2
   end
 end
 

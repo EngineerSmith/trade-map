@@ -40,6 +40,7 @@ scene.load = function(project, start)
   loadImageAssets("icon.barsHorizontal.inactive")
   loadImageAssets("icon.save")
   loadImageAssets("icon.undo")
+  loadImageAssets("icon.redo")
   loadImageAssets("icon.trashcan")
   loadImageAssets("icon.trashcan.open")
   loadImageAssets("icon.up")
@@ -224,13 +225,23 @@ scene.keypressed = function(key, scancode, isrepeat)
         flux.to(iconY, .3, {-4}):ease("backout"):after(iconY, .3, {-1}):ease("backout")
         timerTime = 1
       end
-    elseif scancode == "z" and undo.hasItemsWaiting() then
-      undo.pop()
-      timerTime = .3
-      scene.topLeftIcon = "icon.undo"
-      scene.project.dirty = true
+      return
+    elseif scancode == "z" then
+      if undo.pop() then
+        timerTime = .3
+        scene.topLeftIcon = "icon.undo"
+        scene.project.dirty = true
+      end
+      return
+    elseif scancode == "y" then
+      if undo.redoPop() then
+        timerTime = .3
+        scene.topLeftIcon = "icon.redo"
+        scene.project.dirty = true
+      end
     end
   end
+  scene.active.keypressed(key, scancode, isrepeat)
 end
 
 scene.mousepressed = function(...)

@@ -7,6 +7,7 @@ return {
   ["icon.trashcan"] = "assets/kenney/gameicons/trashcan.png",
   ["icon.trashcan.open"] = "assets/kenney/gameicons/trashcanOpen.png",
   ["icon.undo"] = "assets/kenney/gameicons/return.png",
+  ["icon.redo"] = "assets/kenney/gameicons/redo.png",
   ["icon.up"] = "assets/kenney/gameicons/up.png",
   ["icon.down"] = "assets/kenney/gameicons/down.png",
   ["icon.left"] = "assets/kenney/gameicons/left.png",
@@ -19,6 +20,7 @@ return {
   ["font.bold"] = "assets/fonts/OpenDyslexic-Bold.otf",
   ["font.italic"] = "assets/fonts/OpenDyslexic-Italic.otf",
   ["font.bolditalic"] = "assets/fonts/OpenDyslexic-Bold-Italic.otf",
+  ["font.mono"] = "assets/fonts/RobotoMono-SemiBold.ttf",
 
   ["audio.ui.button"] = "assets/audio/FA_Cute_Jump_3.wav",
 }

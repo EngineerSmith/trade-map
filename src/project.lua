@@ -7,6 +7,8 @@ local color = require("util.color")
 
 local nfs = require("libs.nativefs")
 
+local companyUtil = require("src.companyUtil")
+
 local lfs = love.filesystem
 
 local tradePath = "/server_scripts/base/trading/"
@@ -65,6 +67,7 @@ project.loadProject = function(path)
     return setmetatable({
         dirty = false,
         companies = { },
+        boxes = { },
       }, project)
   else -- existing Project
     print("Pre-existing project: attempting to open project profile")
@@ -74,8 +77,10 @@ project.loadProject = function(path)
     end
     print("Opened project profile")
     love.window.setTitle("Trade Map - "..(self.name))
-    self.dirty = false
     setmetatable(self, project)
+    self.dirty = false
+    self.boxes = self.boxes or { }
+
     self:loadCompanies()
     self:loadLocalization()
     print("Loaded "..#self.companies.." companies")
@@ -96,33 +101,16 @@ project.saveProject = function(self)
       self.dirty = true
       return errorMessage
     end
+
+    local companyDirectory = instanceInfo.path .. tradePath .. "company/"
+    for _, company in ipairs(self.companies) do
+      nfs.write(companyDirectory..(company.name)..".js")
+    end
+
     project.addProject(instanceInfo.path)
     self.dirty = false
     return true
   end
-end
-
-local pattern_fileStart = "^const%s-%S+%s-=%s-"
-local pattern_newLine   = "\nconst%s-%S+%s-=%s-"
-
-local companyConstructorPattern = "Company.constructor%(\"(%S+)\",%s-\"(%S+)\"%)"
-local companyConstructorPattern_noAbbreviation = "Company.constructor%(\"(%S+)\"%)"
-local agreementPattern = "Agreement.constructor%(%S+,%s-\"(%S+)\"%)"
-
-local findPattern = function(text, pattern, outTable)
-  local touched = false
-  -- Check first line of given text for match
-  local _, _, var1, var2 = text:find(pattern_fileStart .. pattern)
-  table.insert(outTable, var1)
-  table.insert(outTable, var2)
-  touched = var1 ~= nil
-  -- Check all new lines of given text for match
-  for var1, var2 in text:gmatch(pattern_newLine .. pattern) do
-    table.insert(outTable, var1)
-    table.insert(outTable, var2)
-    touched = true
-  end
-  return touched
 end
 
 project.loadCompanies = function(self)
@@ -147,31 +135,15 @@ project.loadCompanies = function(self)
       end
       local out = { }
       local script = nfs.read(companyDirectory..filePath)
-      -- [[ company constructor]]
-      if not findPattern(script, companyConstructorPattern, out) and not findPattern(script, companyConstructorPattern_noAbbreviation, out) then
-        print("Could not find company constructor in: "..companyDirectory..filePath)
-        for index, c in ipairs(self.companies) do
-          if c == company then
-            table.remove(self.companies, index)
-            goto continue
-          end
-          error("Shouldn't reach this point")
+      local dirty, errorMessage = companyUtil.scriptToCompany(script, company)
+      if dirty == nil then
+        print("Error occured trying to transform "..companyDirectory..filePath..": Given error message: "..errorMessage) 
+      else
+        if dirty == true then
+          self.diry = true
         end
       end
-      if company.name ~= out[1] then
-        company.name = out[1]
-        self.dirty = true
-      end
-      local abb = out[2] or out [1]
-      if company.abbreviation ~= abb then
-        company.abbreviation = abb
-        self.dirty = true
-      end
-      -- [[ agreements constructor ]]
-      company.agreements = { }
-      findPattern(script, agreementPattern, company.agreements)
     end
-    ::continue::
   end
   table.sort(self.companies, function(a, b) return a.name < b.name end)
   for _, company in ipairs(self.companies) do
@@ -185,7 +157,7 @@ project.loadCompanies = function(self)
       local fd = nfs.newFileData(path, company.fileName..".png")
       local seal = love.graphics.newImage(fd)
       seal:setFilter('nearest')
-      instanceInfo.seal[company.fileName] = seal
+      instanceInfo.seal[company.name] = seal
     else
       print("No seal for "..company.fileName..", at "..path)
     end
