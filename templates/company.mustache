@@ -1,0 +1,9 @@
+//priority:170
+const {{company.abbreviation}} = Company.constructor("{{company.name}}", "{{company.abbreviation}}"){{#hasSeal}}.hasSeal(){{/hasSeal}}
+{{#company.agreement}}
+const {{company.abbreviation}}{{name}} = Agreement.constructor({{company.abbreviation}}, "{{name}}")
+  .setTask({{task}})
+  .setReward({{reward}}){{#recurrence}}
+  .setRecurrence({{.}}){{/recurrence}}
+  .create()
+{{/company.agreement}}
