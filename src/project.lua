@@ -1,6 +1,8 @@
 local project = { }
 project.__index = project
 
+local lt = love.timer
+
 local json = require("util.json")
 local file = require("util.file")
 local color = require("util.color")
@@ -84,6 +86,9 @@ project.loadProject = function(path)
     self:loadCompanies()
     self:loadLocalization()
     print("Loaded "..#self.companies.." companies")
+    for _, company in ipairs(self.companies) do
+      print(("\tAgreements: %3d   FileName: %s"):format(#company.agreement or 0, company.fileName))
+    end
     return self
   end
 end
@@ -96,16 +101,27 @@ end
 project.saveProject = function(self)
   if self.dirty then
     self.dirty = nil
+    local start = lt.getTime()
+    print("Saving!")
     local success, errorMessage = json.encode(instanceInfo.path..projectFile, self, true)
+    print("Saved metadata to "..instanceInfo.path..projectFile)
     if not success then
       self.dirty = true
       return errorMessage
     end
 
     local companyDirectory = instanceInfo.path .. tradePath .. "company/"
+    print("Saving companies:")
     for _, company in ipairs(self.companies) do
-      nfs.write(companyDirectory..(company.name)..".js")
+      local path = instanceInfo.path..sealPath..company.fileName..".png"
+      local hasSeal = nfs.getInfo(path, "file") ~= nil
+      local path = companyDirectory..(company.name)..".js"
+      nfs.write(path, companyUtil.companyToScript(company, hasSeal))
+      print("\tSaved to "..path)
     end
+
+    local stop = love.timer.getTime()
+    print(("Saving took %.4f ms"):format((stop - start)*1000))
 
     project.addProject(instanceInfo.path)
     self.dirty = false
@@ -128,7 +144,8 @@ project.loadCompanies = function(self)
       local company = map[fileName]
       if not company then
         company = {
-          fileName = fileName
+          fileName = fileName,
+          agreement = { },
         }
         table.insert(self.companies, company)
         self.dirty = true

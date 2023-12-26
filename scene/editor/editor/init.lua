@@ -34,6 +34,8 @@ local movingBoxSizeChanged = false
 local rightClickMenuShow = false
 local rightClickMenuX, rightClickMenuY = 0, 0
 
+local showEditUi = false
+
 local editor = { 
   gridX = 0, gridY = 0,
   gridScale = 0,
@@ -43,12 +45,37 @@ local editor = {
   activeBox = nil,
 }
 
-editor.addAction = function(actionText, scancode, func)
+editor.addAction = function(actionText, scancode, func, addToRight)
    editor.keyListen[scancode] = {action = actionText, func = func}
-   table.insert(editor.keyListenOrder, scancode)
+   if addToRight ~= false then
+    table.insert(editor.keyListenOrder, scancode)
+   end
 end
-
+require("scene.editor.editor.box")(editor)
 require("scene.editor.editor.comment")(editor)
+
+editor.addAction("Delete", "delete", function() 
+    if editor.activeBox then
+      local index
+      for i, box in ipairs(editor.project.boxes) do
+        if box == editor.activeBox then
+          index = i
+          break
+        end
+      end
+      if index then
+        undo.push(editor.removeBox(index))
+        editor.activeBox = nil
+      end
+    end
+  end, false)
+
+editor.addAction("Edit", "edit", function()
+  if editor.activeBox then
+    showEditUi = true
+    editor.activeBox.forcefocus = true
+  end
+  end, false)
 
 editor.load = function(project, suit)
   editor.project = project
@@ -67,18 +94,65 @@ editor.update = function(dt)
 
 end
 
+local getFormattedShortcutText = function(scancode, text)
+  local formattedText = ""
+  if scancode and scancode ~= "" then
+    formattedText = ("[%.3s]"):format(scancode:upper())
+  end
+  local leadingSpaces = 6 - #formattedText -- used to align the text
+  formattedText = formattedText .. string.rep(" ", leadingSpaces) .. text
+  return formattedText
+end
+
 editor.updateui = function(x, y)
   local suit = editor.suit
   suit.layout:reset(x, y, 0, 0)
-  if rightClickMenuShow then
+  if showEditUi then
+    local box = editor.activeBox
+
+    local wsize = settings._default.client.windowSize
+    local tw, th = wsize.width, wsize.height
+    local w = tw*.8*suit.scale
+    local h = tw*.6*suit.scale
+    local x = x + lg.getWidth()/2-w/2
+    local y = y + lg.getHeight()/2-h/2
+    h = 0
+    local padding = 4 * suit.scale
+    suit.layout:reset(x, y)
+
+    local type = (box.type or "box"):gsub("^%l", string.upper)
+    local l = suit:Label(("Editing %s"):format(type),{noScaleY=true,noScaleX=true,noBox=true}, suit.layout:down(w, lg.getFont():getHeight()))
+    suit:Shape(-1, {.6,.6,.6}, {noScaleY=true,noScaleX=true}, suit.layout:down(w, padding))
+    suit.layout:padding(0, padding)
+    h = h + l.h + padding*2
+    if box.type == "comment" then
+      suit.layout:translate(padding, 0)
+      local i = suit:Input(box, {noScaleY=true,noScaleX=true,font=suit.monoFont}, suit.layout:down(w-padding*2, lg.getFont():getHeight()))
+      h = h + lg.getFont():getHeight()
+      if cursor_hand and i.hovered then
+        lm.setCursor(cursor_hand)
+      elseif i.left then
+        lm.setCursor(nil)
+      end
+      if i.submitted then
+        showEditUi = false
+      end
+    end
+    suit:Shape(-1, {.4,.4,.4}, {noScaleY=true,noScaleX=true,cornerRadius=3}, x, y, w, h)
+    suit:Shape(-1, {.6,.6,.6}, {noScaleY=true,noScaleX=true,cornerRadius=3}, x-padding, y-padding, w+padding*2, h+padding*2)
+    if cursor_hand and not suit:mouseInRect(x-padding, y-padding, w+padding*2, h+padding*2) then
+      lm.setCursor(cursor_hand)
+    else
+      lm.setCursor(nil)
+    end
+  elseif rightClickMenuShow then
     local x, y = rightClickMenuX, rightClickMenuY
     local w = 0
     local setCursor = false
-    local font = suit.subtitleFont
-    local text = "[%s]  %s  "
+    local font = suit.monoFont
     for _, scancode in ipairs(editor.keyListenOrder) do
       local action = editor.keyListen[scancode].action
-      local thisW = font:getWidth(text:format(scancode, action)) + 4
+      local thisW = font:getWidth(getFormattedShortcutText(scancode, action)) + 4
       if w < thisW then
         w = thisW
       end
@@ -87,14 +161,14 @@ editor.updateui = function(x, y)
     local padding = 1 * suit.scale
     -- context
     if editor.activeBox then
-      local text = "    %s Selected %s  "
+      local text = "%s Selected %s"
       local type = (editor.activeBox.type or "box"):gsub("^%l", string.upper)
       local contextActions = {
-        text:format("Edit", type),
-        text:format("Delete", type)
+        getFormattedShortcutText(nil, text:format("Edit", type)),
+        getFormattedShortcutText("delete", text:format("Delete", type)),
       }
       for _, action in ipairs(contextActions) do
-        local thisW = font:getWidth(action)
+        local thisW = font:getWidth(action) + 4
         if w < thisW then
           w = thisW
         end
@@ -110,8 +184,7 @@ editor.updateui = function(x, y)
         lm.setCursor(nil)
       end
       if b.hit then
-        --todo
-        print("todo: edit box")
+        editor.keyListen["edit"].func()
         rightClickMenuShow = false
       end
       -- DELETE
@@ -125,7 +198,7 @@ editor.updateui = function(x, y)
         lm.setCursor(nil)
       end
       if b.hit then
-        --todo
+        editor.keyListen["delete"].func()
         rightClickMenuShow = false
       end
       -- Add line to seperate context menu from shortcuts
@@ -135,7 +208,7 @@ editor.updateui = function(x, y)
     -- shortcut 
     for index, scancode in ipairs(editor.keyListenOrder) do
       local listen = editor.keyListen[scancode]
-      local b = suit:Button(text:format(scancode, listen.action), {noScaleY=true,noScaleX=true, font=font, align="left",cornerRadius=3}, x, y + variableHeight, w, font:getHeight())
+      local b = suit:Button(getFormattedShortcutText(scancode, listen.action), {noScaleY=true,noScaleX=true, font=font, align="left",cornerRadius=3}, x, y + variableHeight, w, font:getHeight())
       variableHeight = variableHeight + b.h + padding
       if cursor_hand and b.entered then
         lm.setCursor(cursor_hand)
@@ -282,19 +355,28 @@ editor.resize = function(_, _)
 end
 
 editor.resizeGrid = function(gridScale)
+  local suit = editor.suit
+
   local fontSize = 20
   if gridScale <= -0.4 then
     fontSize = 10
   elseif gridScale >= 1 then
     fontSize = 30
   end
-  fontSize = math.floor(fontSize * editor.suit.scale)
+  fontSize = math.floor(fontSize * suit.scale)
   editor.monoFontScale = fontSize/(editor.tileH * .75)
   local fontName = "font.mono."..fontSize
   if not assets[fontName] then
     assets[fontName] = lg.newFont(assets._path["font.mono"], fontSize)
   end
   editor.monoFont = assets[fontName]
+
+  local fontSize = math.floor(15 * suit.scale)
+  local fontName = "font.mono."..fontSize
+  if not assets[fontName] then
+    assets[fontName] = lg.newFont(assets._path["font.mono"], fontSize)
+  end
+  suit.monoFont = assets[fontName]
 end
 
 editor.convertMouseToGrid = function(x, y)
@@ -334,16 +416,21 @@ end
 
 editor.keypressed = function(_, scancode)
   rightClickMenuShow = false
-  local listener = editor.keyListen[scancode]
-  if listener then
-    listener.func(editor.convertMouseToGrid(lm.getPosition()))
+  if not showEditUi then
+    local listener = editor.keyListen[scancode]
+    if listener then
+      listener.func(editor.convertMouseToGrid(lm.getPosition()))
+    end
   end
 end
 
-local pressedTime, activeBoxSetAt
+local pressedTime, activeBoxSetAt, doubleClickTimer
 editor.mousepressed = function(x, y, button)
   if editor.suit:anyHovered() then return end
+  
   rightClickMenuShow = false
+  showEditUi = false
+
   if button == 2 then
     rightClickMenuShow = true
     rightClickMenuX, rightClickMenuY = x, y
@@ -352,17 +439,31 @@ editor.mousepressed = function(x, y, button)
   if button == 1 then
     local tx, ty, gx, gy = editor.convertMouseToGrid(x, y)
     local box = editor.activeBox
-    if movingBoxSizeDirection then
-      movingBoxSize = true
-      box.mouseX = gx
-      box.mouseY = gy
-      return
-    end
-    if movingBox then
-      movingBoxPressed = true
-      box.mouseX = 0
-      box.mouseY = 0
-      return
+    if box then
+      if doubleClickTimer then
+        local time = lt.getTime() - doubleClickTimer
+        if time < 0.51 then
+          editor.keyListen["edit"].func()
+        end
+        doubleClickTimer = nil
+        return
+      end
+      doubleClickTimer = lt.getTime()
+      if movingBoxSizeDirection then
+        movingBoxSize = true
+        box.mouseX = gx
+        box.mouseY = gy
+        return
+      end
+      if movingBox then
+        movingBoxPressed = true
+        box.mouseX = 0
+        box.mouseY = 0
+        return
+      end
+    else
+      movingBoxSizeDirection = nil
+      movingBox = nil
     end
     local isInBox, box = editor.isPointInBox(tx, ty)
     if isInBox then

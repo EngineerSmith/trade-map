@@ -56,7 +56,7 @@ scene.load = function(project, start)
   scene.resize(lg.getDimensions())
   local stop = love.timer.getTime()
   
-  print(("Took %.4f seconds to load project"):format(stop-start))
+  print(("Took %.4f ms to load project"):format((stop-start)*1000))
 
   undo.clear()
 end

@@ -5,8 +5,10 @@ local BASE = (...):match('(.-)[^%.]+$')
 return function(core, text, ...)
 	local opt, x,y,w,h = core.getOptionsAndSize(...)
 	local prey = y
-	x, w = x * core.scale, w * core.scale
-
+	
+	if not opt.noScaleX then
+		x, w = x * core.scale, w * core.scale
+	end
 	if not opt.noScaleY then
 		y = y * core.scale
 	end

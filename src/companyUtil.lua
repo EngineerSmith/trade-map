@@ -18,7 +18,7 @@ local findPattern = function(text, pattern, outTable)
 end
 
 local companyUtil = {
-  companyTemplate = love.filesystem.read("src/templates/company.mustache")
+  companyTemplate = love.filesystem.read("templates/company.mustache")
 }
 
 companyUtil.scriptToCompany = function(script, company)
