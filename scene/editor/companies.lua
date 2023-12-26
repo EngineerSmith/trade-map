@@ -214,6 +214,7 @@ local drawScrollBox = function(x, y, width)
   end
 end
 
+-- todo add company.warning
 local drawCompanySettings = function(x, y)
   local suit = scene.suit
   suit.layout:reset(x, y, 0, 0)

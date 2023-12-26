@@ -22,10 +22,11 @@ removeComment = function(boxes, index)
 end
 
 return function(editor)
-  editor.keyListen["c"] = editor.keyListen["c"] or { }
-  table.insert(editor.keyListen["c"], function(_ , x, y)
+  editor.addAction("Add Comment", "c", function(x, y)
+    print("Adding comment @ ", x, y)
     local w, h = 6, 2
     if editor.canPlaceBox(x, y, w, h) then
+      editor.project.dirty = true
       undo.push(addComment(editor.project.boxes, {
         type = "comment",
         text = "New Comment",
@@ -34,9 +35,6 @@ return function(editor)
         color = color,
         a = .2,
       }))
-      print("PLACED")
-    else
-      print("NOT PLACED")
     end
   end)
 end

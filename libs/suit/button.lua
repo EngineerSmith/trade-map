@@ -43,5 +43,7 @@ return function(core, text, ...)
 		entered = entered,
 		left = left,
 		disabled_hovered = opt.disable and core:isHovered(opt.id),
+		x = x, y = y,
+		w = w, h = h,
 	}
 end

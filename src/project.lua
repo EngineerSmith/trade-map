@@ -137,8 +137,10 @@ project.loadCompanies = function(self)
       local script = nfs.read(companyDirectory..filePath)
       local dirty, errorMessage = companyUtil.scriptToCompany(script, company)
       if dirty == nil then
-        print("Error occured trying to transform "..companyDirectory..filePath..": Given error message: "..errorMessage) 
+        print("Error occured trying to transform "..companyDirectory..filePath..": Given error message: "..errorMessage)
+        company.warning = errorMessage
       else
+        company.warning = nil
         if dirty == true then
           self.diry = true
         end
@@ -176,38 +178,5 @@ project.loadLocalization = function()
     end
   end
 end
-
--- project.addSpritesheet = function(self, path, sprites, name, index)
---   local i, j = path:find(self.path, 1, true)
---   if i ~= 1 then
---     return "notinproject"
---   end
---   path = path:sub(j+1):gsub("\\", "/")
---   for _, spritesheet in ipairs(self.spritesheets) do
---     if spritesheet.path == path then
---       return "alreadyadded"
---     end
---   end
---   print("Added new spritesheet", path, (index and "at"..tostring(index) or ""))
---   local spritesheet = {
---     path = path,
---     name = name or file.getFileName(path),
---   }
---   if index then
---     table.insert(self.spritesheets, index, spritesheet)
---   else
---     table.insert(self.spritesheets, spritesheet)
---   end
---   self.dirty = true
---   return nil, path
--- end
-
--- project.removeSpritesheet = function(self, index)
---   if index < 1 or index > #self.spritesheets then
---     return "invalidindex"
---   end
---   table.remove(self.spritesheets, index)
---   self.dirty = true
--- end
 
 return project

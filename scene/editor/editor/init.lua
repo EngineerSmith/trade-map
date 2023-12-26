@@ -23,18 +23,31 @@ local assets = require("util.assets")
 local undo = require("src.undo")
 
 local movingGrid = false
+
 local movingBox = false
-local movingBoxDirection = false
-local movingBoxRadius = 5
-local movingBoxChanged = false
+local movingBoxPressed = false
+local movingBoxSize = false
+local movingBoxSizeDirection = false
+local movingBoxSizeRadius = 5
+local movingBoxSizeChanged = false
+
+local rightClickMenuShow = false
+local rightClickMenuX, rightClickMenuY = 0, 0
 
 local editor = { 
   gridX = 0, gridY = 0,
   gridScale = 0,
   keyListen = { },
+  keyListenOrder = { },
   tileW = 20, tileH = 20,
   activeBox = nil,
 }
+
+editor.addAction = function(actionText, scancode, func)
+   editor.keyListen[scancode] = {action = actionText, func = func}
+   table.insert(editor.keyListenOrder, scancode)
+end
+
 require("scene.editor.editor.comment")(editor)
 
 editor.load = function(project, suit)
@@ -54,8 +67,92 @@ editor.update = function(dt)
 
 end
 
-editor.updateui = function()
+editor.updateui = function(x, y)
+  local suit = editor.suit
+  suit.layout:reset(x, y, 0, 0)
+  if rightClickMenuShow then
+    local x, y = rightClickMenuX, rightClickMenuY
+    local w = 0
+    local setCursor = false
+    local font = suit.subtitleFont
+    local text = "[%s]  %s  "
+    for _, scancode in ipairs(editor.keyListenOrder) do
+      local action = editor.keyListen[scancode].action
+      local thisW = font:getWidth(text:format(scancode, action)) + 4
+      if w < thisW then
+        w = thisW
+      end
+    end
+    local variableHeight = 0
+    local padding = 1 * suit.scale
+    -- context
+    if editor.activeBox then
+      local text = "    %s Selected %s  "
+      local type = (editor.activeBox.type or "box"):gsub("^%l", string.upper)
+      local contextActions = {
+        text:format("Edit", type),
+        text:format("Delete", type)
+      }
+      for _, action in ipairs(contextActions) do
+        local thisW = font:getWidth(action)
+        if w < thisW then
+          w = thisW
+        end
+      end
+      -- EDIT
+      local contextText = contextActions[1]
+      local b = suit:Button(contextText, {noScaleY=true,noScaleX=true, font=font, align="left",cornerRadius=3}, x,y+variableHeight, w, font:getHeight())
+      variableHeight = variableHeight + b.h + padding
+      if cursor_hand and b.entered then
+        lm.setCursor(cursor_hand)
+        setCursor = true
+      elseif b.left and not setCursor then
+        lm.setCursor(nil)
+      end
+      if b.hit then
+        --todo
+        print("todo: edit box")
+        rightClickMenuShow = false
+      end
+      -- DELETE
+      local contextText = contextActions[2]
+      local b = suit:Button(contextText, {noScaleY=true,noScaleX=true, font=font, align="left",cornerRadius=3}, x,y+variableHeight, w, font:getHeight())
+      variableHeight = variableHeight + b.h + padding*1.5
+      if cursor_hand and b.entered then
+        lm.setCursor(cursor_hand)
+        setCursor = true
+      elseif b.left and not setCursor then
+        lm.setCursor(nil)
+      end
+      if b.hit then
+        --todo
+        rightClickMenuShow = false
+      end
+      -- Add line to seperate context menu from shortcuts
+      local s = suit:Shape(-1, {.6,.6,.6},  {noScaleY=true,noScaleX=true}, x-2, y+variableHeight, w+4, 1.5*suit.scale)
+      variableHeight = variableHeight + s.h + padding*1.5
+    end
+    -- shortcut 
+    for index, scancode in ipairs(editor.keyListenOrder) do
+      local listen = editor.keyListen[scancode]
+      local b = suit:Button(text:format(scancode, listen.action), {noScaleY=true,noScaleX=true, font=font, align="left",cornerRadius=3}, x, y + variableHeight, w, font:getHeight())
+      variableHeight = variableHeight + b.h + padding
+      if cursor_hand and b.entered then
+        lm.setCursor(cursor_hand)
+        setCursor = true
+      elseif b.left and not setCursor then
+        lm.setCursor(nil)
+      end
+      if b.hit then
+        listen.func(editor.convertMouseToGrid(x, y))
+        rightClickMenuShow = false
+      end
+    end
+    variableHeight = variableHeight - padding
 
+    suit:Shape(-1, {.4,.4,.4}, {noScaleY=true,noScaleX=true,cornerRadius=3}, x-2,y-2, w+4, variableHeight+4)
+    suit:Shape(-1, {.6,.6,.6}, {noScaleY=true,noScaleX=true,cornerRadius=3}, x-4,y-4, w+8, variableHeight+8)
+  end
 end
 
 local drawGrid = function(x, y, tileW, tileH, viewportW, viewportH, scale)
@@ -93,18 +190,25 @@ local getBoxGridPosition = function(box)
   --return box.x * editor.tileW - editoir.gridX, box.y * editor.tileH - editor.gridY, box.w * editor.tileW, box.h * editor.tileH 
 end
 
-local getNewPosition = function(screenX, screenY, screenW, screenH, mouseX, mouseY)
-  if movingBoxDirection:find("N") then
-    screenH = screenH - (mouseY - screenY)
-    screenY = mouseY
-  elseif movingBoxDirection:find("S") then
-    screenH = screenH + (mouseY - screenY - screenH)
-  end
-  if movingBoxDirection:find("W") then
-    screenW = screenW - (mouseX - screenX)
-    screenX = mouseX
-  elseif movingBoxDirection:find("E") then
-    screenW = screenW + (mouseX - screenX - screenW)
+local getNewPosition = function(screenX, screenY, screenW, screenH, box)
+  local scale = editor.suit.scale + editor.gridScale
+  local mouseX, mouseY = box.mouseX, box.mouseY
+  if movingBoxSizeDirection then
+    if movingBoxSizeDirection:find("N") then
+      screenH = screenH - (mouseY - screenY)
+      screenY = mouseY
+    elseif movingBoxSizeDirection:find("S") then
+      screenH = screenH + (mouseY - screenY - screenH)
+    end
+    if movingBoxSizeDirection:find("W") then
+      screenW = screenW - (mouseX - screenX)
+      screenX = mouseX
+    elseif movingBoxSizeDirection:find("E") then
+      screenW = screenW + (mouseX - screenX - screenW)
+    end
+  elseif movingBoxPressed then
+    screenX = screenX + mouseX
+    screenY = screenY + mouseY
   end
   return screenX, screenY, screenW, screenH
 end
@@ -114,10 +218,9 @@ local drawBox = function(box)
   local r, g, b = unpack(box.color)
   if editor.activeBox == box then
     r, g, b = 1, 0, 0
-    if movingBox then
+    if movingBoxSize or movingBoxPressed then
       r, g, b = .7,.7,.7
-      screenX, screenY, screenW, screenH = getNewPosition(screenX, screenY, screenW, screenH, box.mouseX, box.mouseY)
-      print(screenX, screenY, screenW, screenH)
+      screenX, screenY, screenW, screenH = getNewPosition(screenX, screenY, screenW, screenH, box)
     end
   end
   lg.push("all")
@@ -126,7 +229,7 @@ local drawBox = function(box)
   lg.setColor(r,g,b, 1.0)
   lg.rectangle("line", screenX, screenY, screenW, screenH)
   if box == editor.activeBox then
-    local r = movingBoxRadius
+    local r = movingBoxSizeRadius
     lg.circle("fill", screenX, screenY, r) -- NW
     lg.circle("fill", screenX + screenW / 2, screenY, r) -- N
     lg.circle("fill", screenX + screenW, screenY, r) -- NE
@@ -173,7 +276,9 @@ editor.drawAboveUI = function()
 end
 
 editor.resize = function(_, _)
-
+  rightClickMenuShow = false
+  editor.wheelmoved(0,0,0,0)
+  editor.resizeGrid(editor.gridScale)
 end
 
 editor.resizeGrid = function(gridScale)
@@ -183,7 +288,8 @@ editor.resizeGrid = function(gridScale)
   elseif gridScale >= 1 then
     fontSize = 30
   end
-  editor.monoFontScale = fontSize/15
+  fontSize = math.floor(fontSize * editor.suit.scale)
+  editor.monoFontScale = fontSize/(editor.tileH * .75)
   local fontName = "font.mono."..fontSize
   if not assets[fontName] then
     assets[fontName] = lg.newFont(assets._path["font.mono"], fontSize)
@@ -227,33 +333,43 @@ editor.isPointInBox = function(x, y)
 end
 
 editor.keypressed = function(_, scancode)
-  local listeners = editor.keyListen[scancode]
-  if listeners then
-    local x, y = editor.convertMouseToGrid(lm.getPosition())
-    for _, listener in ipairs(listeners) do
-      listener(scancode, x, y)
-    end
+  rightClickMenuShow = false
+  local listener = editor.keyListen[scancode]
+  if listener then
+    listener.func(editor.convertMouseToGrid(lm.getPosition()))
   end
 end
 
-local pressedTime
+local pressedTime, activeBoxSetAt
 editor.mousepressed = function(x, y, button)
   if editor.suit:anyHovered() then return end
+  rightClickMenuShow = false
+  if button == 2 then
+    rightClickMenuShow = true
+    rightClickMenuX, rightClickMenuY = x, y
+    return
+  end
   if button == 1 then
     local tx, ty, gx, gy = editor.convertMouseToGrid(x, y)
-    if movingBoxDirection then
-      movingBox = true
-      local box = editor.activeBox
+    local box = editor.activeBox
+    if movingBoxSizeDirection then
+      movingBoxSize = true
       box.mouseX = gx
       box.mouseY = gy
+      return
+    end
+    if movingBox then
+      movingBoxPressed = true
+      box.mouseX = 0
+      box.mouseY = 0
       return
     end
     local isInBox, box = editor.isPointInBox(tx, ty)
     if isInBox then
       editor.activeBox = box
+      activeBoxSetAt = lt.getTime()
       return
     end
-    movingGrid = true
     pressedTime = lt.getTime()
   end
   if button == 3 then
@@ -269,25 +385,44 @@ local isPointInCircle = function(cx, cy, r, x, y)
 end
 
 editor.mousemoved = function(x, y, dx, dy)
+  if editor.suit:anyHovered() then return end
+  local scale = editor.suit.scale + editor.gridScale
   if movingGrid then
-    local scale = editor.suit.scale + editor.gridScale
     editor.gridX = editor.gridX - dx / scale
     editor.gridY = editor.gridY - dy / scale
     return
   end
   if editor.activeBox then
-    local _, _, gridX, gridY = editor.convertMouseToGrid(x, y)
-    if movingBox then
-      local box = editor.activeBox
+    local tx, ty, gridX, gridY = editor.convertMouseToGrid(x, y)
+    local box = editor.activeBox
+    -- check if user tried to grab and move the box as one click
+    if activeBoxSetAt and lt.getTime() - activeBoxSetAt > .1 then
+      activeBoxSetAt = nil
+      movingBoxPressed = true
+      box.mouseX = 0
+      box.mouseY = 0
+    end
+    -- changing the box size
+    if movingBoxSize then
       box.mouseX = gridX
       box.mouseY = gridY
       if isCursorSupported then
-        lm.setCursor(movingBoxChanged)
+        lm.setCursor(movingBoxSizeChanged)
       end
       return
     end
+    -- chaning the box position
+    if movingBoxPressed then
+      box.mouseX = box.mouseX + dx
+      box.mouseY = box.mouseY + dy
+      if isCursorSupported then
+        lm.setCursor(cursor_sizeall)
+      end
+      return
+    end
+    -- is hovering on box size change point
     local bx, by, bw, bh = getBoxGridPosition(editor.activeBox)
-    local r = movingBoxRadius
+    local r = movingBoxSizeRadius
     local cardinalPositions = {
       {x = bx,        y = by,        dir = "NW", cursor = cursor_sizenwse},
       {x = bx + bw/2, y = by,        dir = "N",  cursor = cursor_sizens},
@@ -300,66 +435,112 @@ editor.mousemoved = function(x, y, dx, dy)
     }
     for _, cardinal in ipairs(cardinalPositions) do
       if isPointInCircle(cardinal.x, cardinal.y, r, gridX, gridY) then
-        movingBoxDirection = cardinal.dir
-        movingBoxChanged = cardinal.cursor or true
+        movingBoxSizeDirection = cardinal.dir
+        movingBoxSizeChanged = cardinal.cursor or true
         break
       end
     end
-    if not movingBoxChanged then
-      movingBoxDirection = nil
-      lm.setCursor(nil)
+    if not movingBoxSizeChanged then
+      movingBoxSizeDirection = nil
+      if not rightClickMenuShow then
+        lm.setCursor(nil)
+      end
     elseif isCursorSupported then
-      lm.setCursor(movingBoxChanged)
-      movingBoxChanged = nil
+      lm.setCursor(movingBoxSizeChanged)
+      movingBoxSizeChanged = nil
+    end
+    if movingBoxSizeDirection then return end
+    -- is hovering  to move box
+    local isInBox, box = editor.isPointInBox(tx, ty)
+    if isInBox and box == editor.activeBox then
+      movingBox = true
+      lm.setCursor(cursor_sizeall)
+    elseif movingBox then
+      movingBox = false
+      lm.setCursor(nil)
     end
   end
 end
 
 editor.mousereleased = function(_, _, button)
+  activeBoxSetAt = nil
   if movingGrid then
     movingGrid = false
     lm.setCursor(nil)
   end
-  if movingBox then
+  if editor.activeBox then
     local box = editor.activeBox
     local scale = editor.suit.scale + editor.gridScale
-    local sx, sy, sw, sh = getBoxGridPosition(box)
-    local gx, gy, gw, gh = getNewPosition(sx, sy, sw, sh, box.mouseX, box.mouseY)
-    local dx, dy, dw, dh = gx - sx, gy - sy, gw - sw, gh - sh
-    print(sx, sy, sw, sh, ":", gx, gy, gw, gh, ":", dx, dy, dw, dh)
-    local scaledTileW = editor.tileW * scale
-    local scaledTileH = editor.tileH * scale
-    if dx ~= 0 then
-        box.x = box.x + math.floor(dx / scaledTileW)
+    if movingBoxSize then
+      local wasX, wasY, wasW, wasH = box.x, box.y, box.w, box.h
+      undo.push(function()
+          box.x, box.y, box.w, box.h = wasX, wasY, wasW, wasH --todo add redo
+        end)
+      local sx, sy, sw, sh = getBoxGridPosition(box)
+      local gx, gy, gw, gh = getNewPosition(sx, sy, sw, sh, box)
+      local dx, dy, dw, dh = gx - sx, gy - sy, gw - sw, gh - sh
+      local scaledTileW = editor.tileW * scale
+      local scaledTileH = editor.tileH * scale
+      local touched = false
+      dx, dy = math.floor(dx / scaledTileW), math.floor(dy / scaledTileH)
+      dw, dh = math.ceil(dw / scaledTileW), math.ceil(dh / scaledTileH)
+      if dx ~= 0 then
+          box.x = box.x + dx
+          touched = true
+      end
+      if dy ~= 0 then
+        box.y = box.y + dy
+        touched = true
+      end
+      if dw ~= 0 then
+        box.w = box.w + dw
+        touched = true
+      end
+      if dh ~= 0 then
+        box.h = box.h + dh
+        touched = true
+      end
+      if box.w < 0 then
+        box.x = box.x + box.w
+        box.w = -box.w
+        touched = true
+      end
+      if box.h < 0 then
+        box.y = box.y + box.h
+        box.h = -box.h
+        touched = true
+      end
+      if touched then
+        editor.project.dirty = true
+      end
+      box.mouseX = nil
+      box.mouseY = nil
+      movingBoxSizeChanged = nil
+      movingBoxSizeDirection = nil
+      movingBoxSize = false
+      lm.setCursor(nil)
     end
-    if dy ~= 0 then
-      box.y = box.y + math.floor(dy / scaledTileH)
+    if movingBoxPressed then
+      local wasX, wasY, wasW, wasH = box.x, box.y, box.w, box.h
+      undo.push(function()
+          box.x, box.y, box.w, box.h = wasX, wasY, wasW, wasH --todo add redo
+        end)
+      local sx, sy, sw, sh = getBoxGridPosition(box)
+      local gx, gy, gw, gh = getNewPosition(sx, sy, sw, sh, box)
+      local dx, dy, dw, dh = gx - sx, gy - sy, gw - sw, gh - sh
+      local scaledTileW = editor.tileW * scale
+      local scaledTileH = editor.tileH * scale
+      dx = math.floor(dx / scaledTileW)
+      dy = math.floor(dy / scaledTileH)
+      if dx ~= 0 or dy ~= 0 then
+        box.x = box.x + dx
+        box.y = box.y + dy
+        editor.project.dirty = true
+      end
+      box.mouseX = nil
+      box.mouseY = nil
+      movingBoxPressed = nil
     end
-    if dw ~= 0 then
-      print("width", box.w)
-      box.w = box.w + math.ceil(dw / scaledTileW)
-      print(box.w)
-    end
-    if dh ~= 0 then
-      print("height", box.h)
-      box.h = box.h + math.ceil(dh / scaledTileH)
-      print(box.h)
-    end
-    if box.w < 0 then
-      box.x = box.x + box.w
-      box.w = -box.w
-    end
-    if box.h < 0 then
-      box.y = box.y + box.h
-      box.h = -box.h
-    end
-    print("CHANGED TO:", box.x, box.y, box.w, box.h)
-    box.mouseX = nil
-    box.mouseY = nil
-    movingBoxChanged = nil
-    movingBoxDirection = nil
-    movingBox = false
-    lm.setCursor(nil)
   end
   if pressedTime and lt.getTime() - pressedTime < 0.1 then
     editor.activeBox = nil
@@ -371,15 +552,18 @@ local wheelmovedTime = -100
 editor.wheelmoved = function(_, _, _, y)
   local speed = 1
   if lt.getTime() - wheelmovedTime < 0.1 then
-    speed = 2
+    speed = 2 * editor.suit.scale
   end
   editor.gridScale = editor.gridScale + y * 0.05 * speed
+  
+  local min, max = -.5 * editor.suit.scale, 1.2 * editor.suit.scale
+
   local touched = false
-  if editor.gridScale < -.5 then
-    editor.gridScale = -.5
+  if editor.gridScale < min then
+    editor.gridScale = min
     touched = true
-  elseif editor.gridScale > 1.2 then
-    editor.gridScale = 1.2
+  elseif editor.gridScale > max then
+    editor.gridScale = max
     touched = true
   end
   if not touched then
