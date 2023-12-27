@@ -10,9 +10,8 @@ return function(core, text, ...)
 		x, w = x * core.scale, w * core.scale
 	end
 	if not opt.noScaleY then
-		y = y * core.scale
+		y, h = y * core.scale, h * core.scale
 	end
-
 
 	if not opt.x then
 		opt.x, opt.y, opt.w, opt.h = 0, 0, 0, 0
@@ -42,6 +41,8 @@ return function(core, text, ...)
 		hovered = hovered,
 		entered = entered,
 		left = left,
-		x = x, y = y, w = w, h = h, prey = prey
+		x = x, y = y,
+		w = w, h = h,
+		prey = prey
 	}
 end

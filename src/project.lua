@@ -19,6 +19,7 @@ local sealPath = "/assets/wares/textures/gui/seal/"
 
 local projectsFile = "projects.json"
 local projectFile = tradePath .. ".meta"
+local projectTradeTree = tradePath .. "tradeTree.json"
 
 local instanceInfo = { }
 project.getInstanceInfo = function() return instanceInfo end
@@ -79,6 +80,12 @@ project.loadProject = function(path)
     end
     print("Opened project profile")
     love.window.setTitle("Trade Map - "..(self.name))
+    local success, trades = json.decode(path..projectTradeTree, true)
+    if not success then
+      return nil, "A problem appeared trying to load the trade tree json.\n"..tostring(trades)
+    end
+    print("Opened trade tree json")
+    self.trades = trades
     setmetatable(self, project)
     self.dirty = false
     self.boxes = self.boxes or { }
@@ -109,7 +116,12 @@ project.saveProject = function(self)
       self.dirty = true
       return errorMessage
     end
-
+    local success, errorMessage = json.encode(instanceInfo.path..projectTradeTree, self.trades, true)
+    if not success then
+      self.dirty = true
+      return errorMessage
+    end
+    print("Saved trade tree to "..instanceInfo.path..projectTradeTree)
     local companyDirectory = instanceInfo.path .. tradePath .. "company/"
     print("Saving companies:")
     for _, company in ipairs(self.companies) do
@@ -130,9 +142,8 @@ project.saveProject = function(self)
 end
 
 project.loadCompanies = function(self)
-  if not self.companies then
-    self.companies = { }
-  end
+  self.companies = self.companies or { }
+  instanceInfo.tradeBoxes = { }
   local map = { }
   for _, company in ipairs(self.companies) do
     map[company.fileName] = company
@@ -150,26 +161,48 @@ project.loadCompanies = function(self)
         table.insert(self.companies, company)
         self.dirty = true
       end
-      local out = { }
       local script = nfs.read(companyDirectory..filePath)
       local dirty, errorMessage = companyUtil.scriptToCompany(script, company)
       if dirty == nil then
         print("Error occured trying to transform "..companyDirectory..filePath..": Given error message: "..errorMessage)
-        company.warning = errorMessage
+        company.warning = errorMessage --todo add UI
       else
         company.warning = nil
         if dirty == true then
           self.diry = true
         end
+        instanceInfo.tradeBoxes[company.abbreviation] = { }
+        local tradeBoxes = instanceInfo.tradeBoxes[company.abbreviation]
+        for _, box in ipairs(self.boxes) do
+          if box.type == "trade" and box.company == company.abbreviation then
+            local found = false
+            for _, agreement in ipairs(company.agreement) do
+              if agreement.name == box.agreement then
+                found = true
+                break
+              end
+            end
+            if not found then
+              tradeBoxes[box.agreement] = "Warning! this agreement is not found within the companies javascript file!"
+            else
+              tradeBoxes[box.agreement] = true
+            end
+          end
+        end
       end
     end
   end
   table.sort(self.companies, function(a, b) return a.name < b.name end)
+  instanceInfo.abbreviation = { }
   for _, company in ipairs(self.companies) do
+    -- instance - abb to company
+    instanceInfo.abbreviation[company.abbreviation] = company
+    -- color
     if not company.color then
       company.color = color.getDeterministicColor(company.abbreviation)
       self.dirty = true
     end
+    -- seal
     local path = instanceInfo.path..sealPath..company.fileName..".png"
     if nfs.getInfo(path, "file") then
       company.hasSeal = true

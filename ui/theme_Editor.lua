@@ -64,8 +64,8 @@ end
 
 theme.Label = function(text, opt, x, y, w, h)
   local font = opt.font or lg.getFont()
-  y = y + theme.getVerticalOffsetForAlign(opt.valign, font, h)
-  
+  local y = y + theme.getVerticalOffsetForAlign(opt.valign, font, h)
+
   -- if opt.entered then
   --   if opt.flux then opt.flux:stop() end
   --   opt.flux = flux.to(opt, .3, { x=-2, y=-2, w=4,h=4 }):ease("elasticout")
@@ -80,7 +80,7 @@ theme.Label = function(text, opt, x, y, w, h)
 
   local c = opt.color or theme.getColorForState()
   if not opt.noBox then
-    theme.drawBox(x + opt.x, y - 5 + opt.y, w + opt.w, h + opt.h, c, (opt.x ~= 0 and opt.r or -opt.x)*3, opt.override)
+    theme.drawBox(x + opt.x, y + opt.y, w + opt.w, h + opt.h, c, (opt.x ~= 0 and opt.r or -opt.x)*3, opt.override)
   end
 
   if opt.oneLine then
@@ -110,7 +110,7 @@ end
 
 theme.Button = function(text, opt, x, y, w, h)
   local c = theme.getColorForState(opt.active and "active" or opt.error and "error" or opt.disable and "disable" or opt)
-  theme.drawBox(x + opt.x, y + opt.y, w + opt.w, h + opt.h, opt.color or c, (opt.x ~= 0 and opt.r or -opt.x)*3)
+  theme.drawBox(x + opt.x, y + opt.y, w + opt.w, h + opt.h, opt.color or c, (opt.x ~= 0 and opt.r or -opt.x)*3, opt.override)
 
   local font = opt.font or lg.getFont()
   y = y + theme.getVerticalOffsetForAlign(opt.align, font, h)

@@ -24,13 +24,12 @@ return function(core, text, ...)
 
 	opt.state = core:registerHitbox(opt.id, x,y,w,h)
 
-	local hit, b_1, b_2, b_3 = core:mouseReleasedOn(opt.id)
+	local hit = core:mouseReleasedOn(opt.id)
 	local hovered = not opt.disable and core:isHovered(opt.id)
 	local entered = not opt.disable and core:isHovered(opt.id) and not core:wasHovered(opt.id)
 	local left = not opt.disable and not core:isHovered(opt.id) and core:wasHovered(opt.id)
 
 	opt.hit, opt.hovered, opt.entered, opt.left = hit, hovered, entered, left
-	opt.b_1, opt.b_2, opt.b_3 = b_1, b_2, b_3
 
 	opt.rect = { x, y, w, h}
 

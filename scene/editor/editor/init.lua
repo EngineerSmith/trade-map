@@ -35,6 +35,7 @@ local rightClickMenuShow = false
 local rightClickMenuX, rightClickMenuY = 0, 0
 
 local showEditUi = false
+local editUiTbl = nil
 
 local editor = { 
   gridX = 0, gridY = 0,
@@ -53,6 +54,7 @@ editor.addAction = function(actionText, scancode, func, addToRight)
 end
 require("scene.editor.editor.box")(editor)
 require("scene.editor.editor.comment")(editor)
+require("scene.editor.editor.trade")(editor)
 
 editor.addAction("Delete", "delete", function() 
     if editor.activeBox then
@@ -73,6 +75,7 @@ editor.addAction("Delete", "delete", function()
 editor.addAction("Edit", "edit", function()
   if editor.activeBox then
     showEditUi = true
+    editUiTbl = { }
     editor.activeBox.forcefocus = true
   end
   end, false)
@@ -104,6 +107,16 @@ local getFormattedShortcutText = function(scancode, text)
   return formattedText
 end
 
+local getCompanyLangName = function(company)
+  local name = company.name
+  local instanceInfo = editor.project.getInstanceInfo()
+  if instanceInfo.lang then
+    name = instanceInfo.lang["company.ptdye."..company.abbreviation]
+    if not name or name == "" then name = company.name end
+  end
+  return name
+end
+
 editor.updateui = function(x, y)
   local suit = editor.suit
   suit.layout:reset(x, y, 0, 0)
@@ -123,26 +136,144 @@ editor.updateui = function(x, y)
     local type = (box.type or "box"):gsub("^%l", string.upper)
     local l = suit:Label(("Editing %s"):format(type),{noScaleY=true,noScaleX=true,noBox=true}, suit.layout:down(w, lg.getFont():getHeight()))
     suit:Shape(-1, {.6,.6,.6}, {noScaleY=true,noScaleX=true}, suit.layout:down(w, padding))
-    suit.layout:padding(0, padding)
+    suit.layout:padding(padding, padding)
     h = h + l.h + padding*2
+    suit.layout:translate(padding, 0)
+    local cursorChanged = false
     if box.type == "comment" then
-      suit.layout:translate(padding, 0)
       local i = suit:Input(box, {noScaleY=true,noScaleX=true,font=suit.monoFont}, suit.layout:down(w-padding*2, lg.getFont():getHeight()))
-      h = h + lg.getFont():getHeight()
+      h = h + lg.getFont():getHeight() + padding
       if cursor_hand and i.hovered then
         lm.setCursor(cursor_hand)
+        cursorChanged = true
       elseif i.left then
         lm.setCursor(nil)
       end
       if i.submitted then
         showEditUi = false
       end
+    elseif box.type == "trade" then
+      local font = suit.monoFont
+      local company
+      if box.company then
+        company = editor.project.getInstanceInfo().abbreviation[box.company]
+      end
+      -- company
+      local title = "Company"
+      local titleWidth = font:getWidth(title) + 4
+      local titleHeight = font:getHeight()
+      suit:Label(title, {noScaleY=true, noScaleX=true,noBox=true, font=font}, suit.layout:down(titleWidth, titleHeight))
+      local name, bg
+      if company then
+        name = getCompanyLangName(company)
+        bg = {.3,.3,.3}
+      else
+        name = "PLEASE SELECT"
+        bg = {.7,.2,.2}
+      end
+      local s = suit:Button(" "..name, {id="boxCompany",noScaleY=true,noScaleX=true,color={bg=bg, fg={.95,.95,.95}},cornerRadius=0,r=0,override=true,align="left",font=font}, suit.layout:right(w-titleWidth-padding*3, titleHeight))
+      if cursor_hand and s.hovered then
+        lm.setCursor(cursor_hand)
+        cursorChanged = true
+      elseif s.left then
+        lm.setCursor(nil)
+      end
+      if s.hit then
+        editUiTbl.showDropdownCompany = not editUiTbl.showDropdownCompany
+        editUiTbl.showDropdownAgreement = false
+      end
+      h = h + titleHeight + padding
+      suit.layout:padding(0,0)
+      if editUiTbl.showDropdownCompany then
+        local bHeight = 0
+        local touched = false
+        for i, company in ipairs(editor.project.companies) do
+          local hasFreeAgreements = false
+          local tradeBoxes = editor.project:getInstanceInfo().tradeBoxes[box.company] or { }
+          for _, agreement in ipairs(company.agreement) do
+            if tradeBoxes[agreement.name] then
+              hasFreeAgreements = true
+            end
+          end
+          if not hasFreeAgreements then
+            break
+          end
+          touched = true
+          local bg = i%2 == 0 and {.27,.27,.27} or {.22,.22,.22}
+          local name = getCompanyLangName(company)
+          local b = suit:Button(" "..name,{noScaleY=true,noScaleX=true,color={bg=bg, fg={.95,.95,.95}},cornerRadius=0,r=0,override=true,align="left",font=font}, suit.layout:down())
+          bHeight = bHeight + b.h
+          if b.hit then
+            box.company = company.abbreviation
+            editUiTbl.showDropdownCompany = false
+          end
+        end
+        if not touched then
+          local b = suit:Button(" No Company With Free Agreements",{noScaleY=true,noScaleX=true,color={bg={.7,.2,.2}, fg={.95,.95,.95}},cornerRadius=0,r=0,override=true,align="left",font=font}, suit.layout:down())
+            bHeight = bHeight + b.h
+        end
+        suit.layout:translate(0, -bHeight)
+      end
+      suit.layout:translate(-titleWidth, padding)
+      -- agreement
+      local title = "Agreement"
+      local titleWidth = font:getWidth(title) + 4
+      local titleHeight = font:getHeight()
+      suit:Label(title, {noScaleY=true, noScaleX=true,noBox=true, font=font}, suit.layout:down(titleWidth, titleHeight))
+      local bg = {.7,.2,.2}
+      if box.agreement then
+        for _, agreement in ipairs(company.agreement) do
+          if agreement.name == box.agreement then
+            bg = {.3,.3,.3}
+            break
+          end
+        end
+      end
+      local text = company and (" "..(box.agreement or "PLEASE SELECT")) or "PLEASE SELECT COMPANY"
+      local s = suit:Button(text, {id="boxAgreement",noScaleY=true,noScaleX=true,color={bg=bg, fg={.95,.95,.95}},cornerRadius=0,r=0,override=true,align="left",font=font}, suit.layout:right(w-titleWidth-padding*3, titleHeight))
+      h = h + titleHeight + padding
+      if company then
+        if cursor_hand and s.hovered then
+          lm.setCursor(cursor_hand)
+          cursorChanged = true
+        elseif s.left then
+          lm.setCursor(nil)
+        end
+        if s.hit then
+          editUiTbl.showDropdownAgreement = not editUiTbl.showDropdownAgreement
+          editUiTbl.showDropdownCompany = false
+        end
+        suit.layout:padding(0,0)
+        if editUiTbl.showDropdownAgreement then
+          local bHeight = 0
+          local tradeBoxes = editor.project:getInstanceInfo().tradeBoxes[box.company]
+          local touched = false
+          for i, agreement in ipairs(company.agreement) do
+            if not tradeBoxes[agreement.name] then
+              touched = true
+              local bg = i%2 == 0 and {.27,.27,.27} or {.22,.22,.22}
+              local b = suit:Button(" "..agreement.name,{noScaleY=true,noScaleX=true,color={bg=bg, fg={.95,.95,.95}},cornerRadius=0,r=0,override=true,align="left",font=font}, suit.layout:down())
+              bHeight = bHeight + b.h
+              if b.hit then
+                box.agreement = agreement.name
+                editUiTbl.showDropdownAgreement = false
+              end
+            end
+          end
+          if not touched then
+            local b = suit:Button(" No Agreements Free",{noScaleY=true,noScaleX=true,color={bg={.7,.2,.2}, fg={.95,.95,.95}},cornerRadius=0,r=0,override=true,align="left",font=font}, suit.layout:down())
+            bHeight = bHeight + b.h
+          end
+          suit.layout:translate(0, -bHeight)
+        end
+      end
+      suit.layout:translate(-titleWidth, padding)
     end
     suit:Shape(-1, {.4,.4,.4}, {noScaleY=true,noScaleX=true,cornerRadius=3}, x, y, w, h)
     suit:Shape(-1, {.6,.6,.6}, {noScaleY=true,noScaleX=true,cornerRadius=3}, x-padding, y-padding, w+padding*2, h+padding*2)
     if cursor_hand and not suit:mouseInRect(x-padding, y-padding, w+padding*2, h+padding*2) then
       lm.setCursor(cursor_hand)
-    else
+    elseif not cursorChanged then
       lm.setCursor(nil)
     end
   elseif rightClickMenuShow then
@@ -286,9 +417,10 @@ local getNewPosition = function(screenX, screenY, screenW, screenH, box)
   return screenX, screenY, screenW, screenH
 end
 
-local drawBox = function(box)
+local drawBox = function(box, stencil, color)
   local screenX, screenY, screenW, screenH = getBoxGridPosition(box)
-  local r, g, b = unpack(box.color)
+  local c = color or box.color or {1,1,1}
+  local r, g, b = unpack(c)
   if editor.activeBox == box then
     r, g, b = 1, 0, 0
     if movingBoxSize or movingBoxPressed then
@@ -297,11 +429,19 @@ local drawBox = function(box)
     end
   end
   lg.push("all")
+  if stencil ~= false then
+    lg.setStencilMode("replace", "always", 1)
+  end
   lg.setColor(r,g,b, box.a or 0.4)
   lg.rectangle("fill", screenX, screenY, screenW, screenH)
   lg.setColor(r,g,b, 1.0)
   lg.rectangle("line", screenX, screenY, screenW, screenH)
+  if stencil ~= false then
+    lg.setStencilMode()
+  end
   if box == editor.activeBox then
+    lg.push("all")
+    lg.setStencilMode()
     local r = movingBoxSizeRadius
     lg.circle("fill", screenX, screenY, r) -- NW
     lg.circle("fill", screenX + screenW / 2, screenY, r) -- N
@@ -311,18 +451,45 @@ local drawBox = function(box)
     lg.circle("fill", screenX + screenW / 2, screenY + screenH, r) -- S
     lg.circle("fill", screenX, screenY + screenH, r) -- SW
     lg.circle("fill", screenX, screenY + screenH / 2, r) -- W
+    lg.pop()
   end
   lg.pop()
-  return screenX, screenY
+  return screenX, screenY, screenW, screenH
 end
 
 local drawComment = function(comment)
   local scale = editor.suit.scale + editor.gridScale
-  local screenX, screenY = drawBox(comment)
-  lg.push("all")
-  lg.setFont(editor.monoFont)
-  lg.print(" "..tostring(comment.text), screenX, screenY,0,scale/editor.monoFontScale)
-  lg.pop()
+  lg.setStencilMode("keep", "equal", 0)
+  local screenX, screenY = drawBox(comment, false)
+  lg.setStencilMode()
+  lg.print(" "..tostring(comment.text), editor.monoFont, screenX, screenY,0,scale/editor.monoFontScale)
+end
+
+local drawTrade = function(trade)
+  local scale = editor.suit.scale + editor.gridScale
+  local c
+  if trade.company then
+    c = editor.project:getInstanceInfo().abbreviation[trade.company].color
+  end
+  local screenX, screenY, screenW, screenH = drawBox(trade, true, c)
+
+  local font = editor.monoFont
+  local scale = scale/editor.monoFontScale
+
+  local company = (trade.company or "UNKNOWN"):upper()
+  local agreement = trade.agreement or "UNKNOWN"
+
+  local h = font:getHeight() * scale
+
+  if trade.h >= 2 then
+    local w = font:getWidth(company) * scale
+    local x, y = screenX + (screenW/2 - w/2), screenY + (screenH/2 - h/2) - h/2
+    lg.print(company, font, x, y, 0, scale)
+  end
+
+  local w = font:getWidth(agreement) * scale
+  local x, y = screenX + (screenW/2 - w/2), screenY + (screenH/2 - h/2) + (trade.h >= 2 and h/2 or 0)
+  lg.print(agreement, font, x, y, 0, scale)
 end
 
 editor.draw = function()
@@ -334,12 +501,19 @@ editor.draw = function()
   lg.push("all")
   lg.translate(lg.getWidth()/2,lg.getHeight()/2)
   for _, box in ipairs(editor.project.boxes) do
-    if box.type == "comment" then
-      drawComment(box)
-    else
+    if box.type == "trade" then
+      drawTrade(box)
+    elseif box.type ~= "comment" then
       drawBox(box)
     end
   end
+  -- comments are stenciled out so they don't blend with the other boxes
+  for _, box in ipairs(editor.project.boxes) do
+    if box.type == "comment" then
+      drawComment(box)
+    end
+  end
+  
   lg.pop()
   lg.pop()
 end
@@ -402,14 +576,34 @@ editor.canPlaceBox = function(x, y, w, h)
   return true
 end
 
+editor.getUnassignedTrade = function()
+  for _, company in ipairs(editor.project.companies) do
+    local tradeBoxes = editor.project:getInstanceInfo().tradeBoxes[company.abbreviation]
+    for _, agreement in ipairs(company.agreement) do
+      if not tradeBoxes[agreement.name] then
+        return company.abbreviation, agreement.name
+      end
+    end
+  end
+  return nil
+end
+
 editor.isPointInBox = function(x, y)
+  local comment
   for _, box in ipairs(editor.project.boxes) do
     if box.x <= x and
        box.x + box.w >= x and
        box.y <= y and
        box.y + box.h >= y then
-      return true, box
+      if box.type == "comment" then
+        comment = box
+      else
+        return true, box
+      end
     end
+  end
+  if comment then
+    return true, comment
   end
   return false, nil
 end
@@ -443,10 +637,13 @@ editor.mousepressed = function(x, y, button)
       if doubleClickTimer then
         local time = lt.getTime() - doubleClickTimer
         if time < 0.51 then
-          editor.keyListen["edit"].func()
+          local isInBox, box = editor.isPointInBox(tx, ty)
+          if box == editor.activeBox then
+            editor.keyListen["edit"].func()
+            return
+          end
         end
         doubleClickTimer = nil
-        return
       end
       doubleClickTimer = lt.getTime()
       if movingBoxSizeDirection then
@@ -547,6 +744,7 @@ editor.mousemoved = function(x, y, dx, dy)
         lm.setCursor(nil)
       end
     elseif isCursorSupported then
+      doubleClickTimer = nil
       lm.setCursor(movingBoxSizeChanged)
       movingBoxSizeChanged = nil
     end
@@ -651,8 +849,9 @@ end
 
 local wheelmovedTime = -100
 editor.wheelmoved = function(_, _, _, y)
+  if editor.suit:anyHovered() then return end
   local speed = 1
-  if lt.getTime() - wheelmovedTime < 0.1 then
+  if lt.getTime() - wheelmovedTime < 0.2 then
     speed = 2 * editor.suit.scale
   end
   editor.gridScale = editor.gridScale + y * 0.05 * speed
