@@ -214,12 +214,12 @@ editor.updateui = function(x, y)
         end
         suit.layout:translate(0, -bHeight)
       end
-      suit.layout:translate(-titleWidth, padding)
+      suit.layout:translate(-titleWidth-padding, padding)
       -- agreement
       local title = "Agreement"
       local titleWidth = font:getWidth(title) + 4
       local titleHeight = font:getHeight()
-      suit:Label(title, {noScaleY=true, noScaleX=true,noBox=true, font=font}, suit.layout:down(titleWidth, titleHeight))
+      suit:Label(title, {noScaleY=true, noScaleX=true,noBox=true, font=font}, suit.layout:down(titleWidth+padding, titleHeight))
       local bg = {.7,.2,.2}
       if box.agreement then
         for _, agreement in ipairs(company.agreement) do
@@ -492,6 +492,13 @@ local drawTrade = function(trade)
   lg.print(agreement, font, x, y, 0, scale)
 end
 
+editor.drawTradeRelationship = function()
+  for _, trade in ipairs(editor.project:getInstanceInfo().trades) do
+    --{"unlock":["bcfPlates2","bnwRedstone"],"completed":["bcfPlates"]}
+
+  end
+end
+
 editor.draw = function()
   local scale = editor.suit.scale + editor.gridScale
   local w, h = lg.getDimensions()
@@ -514,6 +521,8 @@ editor.draw = function()
     end
   end
   
+  editor.drawTradeRelationship()
+
   lg.pop()
   lg.pop()
 end
@@ -592,9 +601,9 @@ editor.isPointInBox = function(x, y)
   local comment
   for _, box in ipairs(editor.project.boxes) do
     if box.x <= x and
-       box.x + box.w >= x and
+       box.x + box.w > x and
        box.y <= y and
-       box.y + box.h >= y then
+       box.y + box.h > y then
       if box.type == "comment" then
         comment = box
       else

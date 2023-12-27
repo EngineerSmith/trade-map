@@ -71,6 +71,7 @@ project.loadProject = function(path)
         dirty = false,
         companies = { },
         boxes = { },
+        tradeRoutes = { },
       }, project)
   else -- existing Project
     print("Pre-existing project: attempting to open project profile")
@@ -85,13 +86,14 @@ project.loadProject = function(path)
       return nil, "A problem appeared trying to load the trade tree json.\n"..tostring(trades)
     end
     print("Opened trade tree json")
-    self.trades = trades
+    instanceInfo.trades = trades
     setmetatable(self, project)
     self.dirty = false
     self.boxes = self.boxes or { }
 
     self:loadCompanies()
     self:loadLocalization()
+    self:loadTradeRoutes()
     print("Loaded "..#self.companies.." companies")
     for _, company in ipairs(self.companies) do
       print(("\tAgreements: %3d   FileName: %s"):format(#company.agreement or 0, company.fileName))
@@ -116,7 +118,7 @@ project.saveProject = function(self)
       self.dirty = true
       return errorMessage
     end
-    local success, errorMessage = json.encode(instanceInfo.path..projectTradeTree, self.trades, true)
+    local success, errorMessage = json.encode(instanceInfo.path..projectTradeTree, instanceInfo.trades, true)
     if not success then
       self.dirty = true
       return errorMessage
@@ -227,6 +229,10 @@ project.loadLocalization = function()
       print("Couldn't load "..file)
     end
   end
+end
+
+project.loadTradeRoutes = function(self)
+  
 end
 
 return project
